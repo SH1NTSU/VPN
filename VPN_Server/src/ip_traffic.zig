@@ -1,8 +1,11 @@
 const std = @import("std");
 
 
-const Packet = struct  { 
-    ip: []const u8,
-    port: u16,
+const Packet = struct {
+    IP: []const u8,
+    Port: u16,
     
 };
+pub fn extraction(decrypted: []u8) void {
+    
+}

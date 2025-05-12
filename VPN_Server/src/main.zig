@@ -1,6 +1,5 @@
 const std = @import("std");
 const crypto = @import("crypto.zig");
-const Cstruct = crypto.Crypto;
 const server = @import("server.zig");
 const testing = std.testing;
 
@@ -16,10 +15,8 @@ pub fn main() !void {
             std.debug.print("Packet too short: len={}\n", .{received_len});
             continue;
         }
-        const decrypt = try Cstruct.decrypt(buffer[0..received_len]);
-        defer std.heap.page_allocator.free(decrypt.payload);
-
-        std.debug.print("Decrypted message: {s} \n", .{decrypt.payload});
+        const packet = try crypto.decrypt(buffer[0..received_len]);
+        std.debug.print("Decrypted message: {s} {d} \n", .{packet.IP, packet.PORT});
     }
 }
 
