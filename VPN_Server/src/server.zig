@@ -1,9 +1,12 @@
 const std = @import("std");
 const posix = std.posix;
 const net = std.net;
+const protocol = @import("protocol.zig");
+const Packet = protocol.Packet;
 pub const Socket = struct {
     address: net.Address,
     socket: posix.socket_t,
+
 
     pub fn init(ip: []const u8, port: u16) !Socket {
         const addr = try net.Address.parseIp(ip, port);
@@ -23,5 +26,10 @@ pub const Socket = struct {
         var sender_addr: net.Address = undefined;
         var addr_len: posix.socklen_t = @sizeOf(net.Address);
         return try posix.recvfrom(self.socket, buffer, 0, &sender_addr.any, &addr_len);
+    }
+
+    pub fn send(self: *Socket, payload: []u8) !void {
+    
+
     }
 };
