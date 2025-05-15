@@ -28,8 +28,5 @@ pub const Socket = struct {
         return try posix.recvfrom(self.socket, buffer, 0, &sender_addr.any, &addr_len);
     }
 
-    pub fn send(self: *Socket, payload: []u8) !void {
-    
 
-    }
 };
