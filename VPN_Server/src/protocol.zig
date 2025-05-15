@@ -28,11 +28,11 @@ pub const Packet = struct {
         };
     }
 
-    pub fn encode(self: *Self, allocator: std.mem.Allocator) ![]u8 {
-        const encoded = try allocator.alloc(u8, self.IP.len + 6); // 4 for PORT, 2 for ':'
+    pub fn encode(payload: Packet, allocator: std.mem.Allocator) ![]u8 {
+        const encoded = try allocator.alloc(u8, payload.ip.len + 6); 
         const writer = std.mem.writer(encoded);
 
-        try writer.print("{}:{}", .{self.IP, self.PORT});
+        try writer.print("{}:{}", .{payload.ip, payload.port});
         return encoded[0..writer.written()];
     }
 };

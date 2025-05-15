@@ -6,25 +6,52 @@ const std = @import("std");
 const packet = @import("protocol.zig").Packet;
 const errors = @import("errors.zig");
 const errs = errors.session_errors;
+const server = @import("server.zig").Socket;
+const Crypto = @import("crypto.zig").Crypto;
 
-const ClientKey = struct {
+
+pub const ServerData = struct {
     ip: []const u8,
     port: u16,
 };
+
+
+const ClientKey = struct {
+    ip: []const u8,
+
+    pub fn hash(self: @This()) u64 {
+        return std.hash.Wyhash.hash(0, self.ip);
+    }
+
+    pub fn eql(self: @This(), other: @This()) bool {
+        return std.mem.eql(u8, self.ip, other.ip);
+    }
+
+    pub const Context = struct {
+        pub fn hash(self: @This(), key: ClientKey) u64 {
+            _ = self;
+            return key.hash();
+        }
+        pub fn eql(self: @This(), a: ClientKey, b: ClientKey) bool {
+            _ = self;
+            return a.eql(b);
+        }
+    };
+};
+
 const ClientData = struct {
-    connected_at: i64, 
+    port: u16,
 };
 
 pub const Session = struct {
     allocator: std.mem.Allocator,
-    clients: std.AutoHashMap(ClientKey, ClientData),
-    
+    clients: std.HashMap(ClientKey, ClientData, ClientKey.Context, std.hash_map.default_max_load_percentage),
 
     const Self = @This();
     pub fn init(allocator: std.mem.Allocator) !Session {
         return Session{
             .allocator = allocator,
-            .clients = std.hash.autoHashStrat(ClientKey, ClientData, .Deep),
+            .clients = std.HashMap(ClientKey, ClientData, ClientKey.Context, std.hash_map.default_max_load_percentage).init(allocator),
         };
     }
 
@@ -32,44 +59,46 @@ pub const Session = struct {
         self.clients.deinit();
     }
 
-    pub fn log_client(self: *Self, data: packet) !void {
+    pub fn log_client(crypto: *Crypto, socket: *server, self: *Self, data: packet) !void {
+        
         const client_key = ClientKey{
             .ip = data.ip,
+        };
+
+        const client_data = ClientData{
             .port = data.port,
         };
-
-        const current_time = std.time.milliTimestamp();
-        const client_data = ClientData{
-            .connected_at = current_time,
+    
+        
+        const server_data = ServerData{
+            .ip = "84.234.123.160",
+            .port = 55555,
         };
 
-       self.clients.put(client_key, client_data) catch {
-            std.log.err("Invalid data", .{});
-            return errs.CantLogIn;
-        }; 
-        std.debug.print("Client: {any} logged", .{data.ip});
-
+        
+        try server.send(crypto, socket,server_data);
+        
+        try self.clients.put(client_key, client_data);
+        std.debug.print("Client: {s} logged\n", .{data.ip});
     }
 
     pub fn logout_client(self: *Self, data: packet) !void {
         const client_key = ClientKey{
             .ip = data.ip,
-            .port = data.port,
         };
-        self.clients.remove(client_key) catch {
-            std.debug.print("Couldnt disconnect", .{});
+        if (!self.clients.remove(client_key)) {
+            std.debug.print("Couldn't disconnect\n", .{});
             return errs.CantLogOut;
-        };
-        std.debug.print("client: {any}, loged out", .{client_key.ip});
+        }
+        std.debug.print("client: {s}, logged out\n", .{client_key.ip});
     }
 
     pub fn check_clients(self: *Self) !void {
         var iterator = self.clients.iterator();
         std.debug.print("List of connected Clients: \n", .{});
-        for(iterator.next()) |entry| {
-            const client =  entry.value;
-            std.debug.print("Client connected at: {any}", .{client.connection_time});
+        while (iterator.next()) |entry| {
+            const client = entry.value_ptr.*;
+            std.debug.print("Client connected at: {}\n", .{client.port});
         }
     }
-
 };

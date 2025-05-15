@@ -3,6 +3,9 @@ const posix = std.posix;
 const net = std.net;
 const protocol = @import("protocol.zig");
 const Packet = protocol.Packet;
+const Cryptto = @import("crypto.zig").Crypto;
+
+
 pub const Socket = struct {
     address: net.Address,
     socket: posix.socket_t,
@@ -28,5 +31,13 @@ pub const Socket = struct {
         return try posix.recvfrom(self.socket, buffer, 0, &sender_addr.any, &addr_len);
     }
 
+    pub fn send(crypto: *Crypto, self: *Self, payload: Packet) !void {
+        const encrypted = try crypto.encrypt(crypto, payload);
+
+        try posix.send(self.socket, encrypted, 0);
+
+        std.debug.print("Data succesfully send back to client", .{});
+    }
+    
 
 };
