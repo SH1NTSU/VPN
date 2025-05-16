@@ -1,7 +1,7 @@
 const std = @import("std");
 const errors = @import("errors.zig");
 const err = errors.parser_errors;
-
+const Session = @import("session.zig").ServerData;
 pub const Packet = struct {
     port: u16,
     ip: []const u8,
@@ -28,12 +28,20 @@ pub const Packet = struct {
         };
     }
 
-    pub fn encode(payload: Packet, allocator: std.mem.Allocator) ![]u8 {
-        const encoded = try allocator.alloc(u8, payload.ip.len + 6); 
-        const writer = std.mem.writer(encoded);
+    pub fn encode(payload: Session, allocator: *std.mem.Allocator) ![]const u8 {
+        const max_port_digits = 5; // u16 max: 65535 (5 digits)
+        const encoded_len = payload.ip.len + 1 + max_port_digits; // "IP:PORT"
 
-        try writer.print("{}:{}", .{payload.ip, payload.port});
-        return encoded[0..writer.written()];
+        const encoded = try allocator.alloc(u8, encoded_len);
+        errdefer allocator.free(encoded);
+
+        const written = try std.fmt.bufPrint(
+            encoded,
+            "{s}:{}",
+            .{ payload.ip, payload.port },
+        );
+
+        return encoded[0..written.len];
     }
 };
 

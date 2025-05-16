@@ -2,14 +2,14 @@ const std = @import("std");
 const posix = std.posix;
 const net = std.net;
 const protocol = @import("protocol.zig");
-const Packet = protocol.Packet;
-const Cryptto = @import("crypto.zig").Crypto;
-
+const Crypto = @import("crypto.zig").Crypto;
+const Session = @import("session.zig").ServerData;
 
 pub const Socket = struct {
     address: net.Address,
     socket: posix.socket_t,
 
+    const Self = @This();
 
     pub fn init(ip: []const u8, port: u16) !Socket {
         const addr = try net.Address.parseIp(ip, port);
@@ -31,13 +31,18 @@ pub const Socket = struct {
         return try posix.recvfrom(self.socket, buffer, 0, &sender_addr.any, &addr_len);
     }
 
-    pub fn send(crypto: *Crypto, self: *Self, payload: Packet) !void {
-        const encrypted = try crypto.encrypt(crypto, payload);
+    pub fn send(self: *Socket, crypto: *Crypto, data: Session, allocator: *std.mem.Allocator) !void {
+        const encrypted = try crypto.encrypt(data, allocator);
+        defer allocator.free(encrypted); 
 
-        try posix.send(self.socket, encrypted, 0);
-
-        std.debug.print("Data succesfully send back to client", .{});
-    }
-    
-
+        _ = try std.posix.sendto(
+            self.socket,
+            encrypted,
+            0,
+            &self.address.any, 
+            self.address.getOsSockLen()
+        );
+        std.debug.print("network address sent successfully!\n", .{});
+    }    
 };
+

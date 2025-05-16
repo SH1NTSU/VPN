@@ -2,7 +2,7 @@ const std = @import("std");
 const aead = std.crypto.aead.aes_gcm.Aes256Gcm;
 const protocol = @import("protocol.zig");
 const Packet = protocol.Packet;
-
+const Session = @import("session.zig").ServerData;
 
 pub const Crypto = struct {
     key: [32]u8,
@@ -11,17 +11,18 @@ pub const Crypto = struct {
     nonce: [12]u8,
     ciphertext: []const u8,
     
-    const Self = @This();
-    pub fn init(received_data: []const u8) !Crypto { 
+    pub fn init(received_data: []const u8) Crypto { 
         
         const key: [32]u8 = "your-32-byte-secure-key-string!2".*;
         const ad: []const u8 = "auth_data"; // Must match Swift if used
         
         const nonce = received_data[0..12].*;
         const ciphertext = received_data[12..received_data.len - 16];
-        const tag = received_data[28..44].*;
-    
-        if (received_data.len < 12 + 16) return error.PacketTooShort;
+       
+        const tag_start = received_data.len - 16;
+        var tag: [16]u8 = undefined;
+        std.mem.copyBackwards(u8, &tag, received_data[tag_start..]); 
+        
         return Crypto{
             .key = key, 
             .add = ad,
@@ -32,7 +33,7 @@ pub const Crypto = struct {
 
 
     }
-    pub fn decrypt(self: *Self) !Packet   {
+    pub fn decrypt(self: *Crypto) !Packet   {
         
         const allocator = std.heap.page_allocator;
 
@@ -58,23 +59,20 @@ pub const Crypto = struct {
         return packet;
     }
 
-    pub fn encrypt(self: *Self, payload: Packet) []const u8 {
-        const gpa = std.heap.GeneralPurposeAllocator(.{}){};
-        defer _ = gpa.deinit();
-
-        const allocator = gpa.allocator();
-
+    pub fn encrypt(self: *Crypto, payload: Session, allocator: *std.mem.Allocator) ![]const u8 {
 
         const encoded = try Packet.encode(payload, allocator);
-        
-        var c = try allocator.alloc(u8, encoded.len);
+        defer allocator.free(encoded);
+
+        const c = try allocator.alloc(u8, encoded.len);
         errdefer allocator.free(c);
 
-        try aead.encrypt(c, self.tag, payload, self.add, self.nonce, self.key);
+        var tag = self.tag;
+        _ = aead.encrypt(c, &tag, encoded, self.add, self.nonce, self.key);
         
-        const encrypted = try allocator.dupe(u8, c[0..]);
+        const encrypted = try allocator.dupe(u8, c);
         return encrypted;
-    }
+        }
 };
 
 

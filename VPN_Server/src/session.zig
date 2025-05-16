@@ -76,7 +76,7 @@ pub const Session = struct {
         };
 
         
-        try server.send(crypto, socket,server_data);
+        try server.send(socket, crypto, server_data, &self.allocator);
         
         try self.clients.put(client_key, client_data);
         std.debug.print("Client: {s} logged\n", .{data.ip});
