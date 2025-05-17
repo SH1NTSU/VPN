@@ -82,10 +82,13 @@ pub const Session = struct {
         std.debug.print("Client: {s} logged\n", .{data.ip});
     }
 
-    pub fn logout_client(self: *Self, data: packet) !void {
+    pub fn logout_client(self: *Self, ip: []const u8) !void {
+        
+        std.debug.print("the ip: {s}\n", .{ip});
         const client_key = ClientKey{
-            .ip = data.ip,
+            .ip = ip,
         };
+
         if (!self.clients.remove(client_key)) {
             std.debug.print("Couldn't disconnect\n", .{});
             return errs.CantLogOut;

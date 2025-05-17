@@ -16,13 +16,31 @@ pub fn main() !void {
     defer session_.deinit();
     
     var buffer: [1024]u8 = undefined;
+    const diss_msg = "DISCONNECT";
 
     while (true) {
         const received_len = try socket.listen(&buffer);
+        std.debug.print("received_len: {d}\n", .{received_len}); 
+        const received = buffer[0..received_len];
 
-        var crypto_ = crypto.init(buffer[0..received_len]);
+        if (received_len >= diss_msg.len and std.mem.eql(u8, received[(received_len - diss_msg.len)..], diss_msg)) {
+            std.debug.print("Disconnect message received\n", .{});
+            const ip = received[0..(received_len - diss_msg.len)];
+            try session_.logout_client(ip);
+            session.check_clients(&session_) catch |err| {
+                std.debug.print("Client check failed: {}\n", .{err});
+            };
+            continue;
+        }
 
-        const  packet = crypto.decrypt(&crypto_) catch |err| {
+        // Ensure received data is long enough for encryption/decryption
+        if (received_len < 28) {
+            continue;
+        }
+
+        var crypto_ = crypto.init(received[0..received.len]);
+
+        const packet = crypto.decrypt(&crypto_) catch |err| {
             std.debug.print("Decryption failed: {}\n", .{err});
             continue;
         };

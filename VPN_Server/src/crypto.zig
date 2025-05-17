@@ -56,6 +56,7 @@ pub const Crypto = struct {
 
         const payload = try allocator.dupe(u8, decrypted[0..]);  
         const packet = protocol.Packet.parser(payload);
+        std.debug.print("decrypted succedfully!\n", .{});
         return packet;
     }
 

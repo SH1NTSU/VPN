@@ -2,6 +2,9 @@ const std = @import("std");
 const errors = @import("errors.zig");
 const err = errors.parser_errors;
 const Session = @import("session.zig").ServerData;
+
+
+
 pub const Packet = struct {
     port: u16,
     ip: []const u8,
@@ -27,6 +30,7 @@ pub const Packet = struct {
             .ip = ip,
         };
     }
+
 
     pub fn encode(payload: Session, allocator: *std.mem.Allocator) ![]const u8 {
         const max_port_digits = 5; // u16 max: 65535 (5 digits)
