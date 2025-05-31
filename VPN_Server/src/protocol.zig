@@ -2,7 +2,7 @@ const std = @import("std");
 const errors = @import("errors.zig");
 const err = errors.parser_errors;
 const Session = @import("session.zig").ServerData;
-
+const testing = std.testing;
 
 
 pub const Packet = struct {
@@ -49,3 +49,36 @@ pub const Packet = struct {
     }
 };
 
+
+
+
+
+
+
+test "parser test" {
+    const test_payload = "192.168.1.1:8080";
+        
+    const packet = try Packet.parser(test_payload);
+        
+    try testing.expectEqualStrings(packet.ip, "192.168.1.1");    
+    try testing.expectEqual(packet.port, 8080);
+}
+
+
+
+
+test "encoding test" {
+    
+    var test_allocator = testing.allocator;
+
+    const test_payload = Session{
+        .ip = "84.234.123.160",
+        .port = 55555,
+    };
+    
+    const encoded = try Packet.encode(test_payload, &test_allocator);
+    defer test_allocator.free(encoded);  
+    
+    try testing.expect(encoded.len > 0);
+
+}   

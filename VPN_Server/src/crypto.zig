@@ -3,6 +3,7 @@ const aead = std.crypto.aead.aes_gcm.Aes256Gcm;
 const protocol = @import("protocol.zig");
 const Packet = protocol.Packet;
 const Session = @import("session.zig").ServerData;
+const testing = std.testing;
 
 pub const Crypto = struct {
     key: [32]u8,
@@ -61,19 +62,72 @@ pub const Crypto = struct {
     }
 
     pub fn encrypt(self: *Crypto, payload: Session, allocator: *std.mem.Allocator) ![]const u8 {
-
         const encoded = try Packet.encode(payload, allocator);
         defer allocator.free(encoded);
 
         const c = try allocator.alloc(u8, encoded.len);
-        errdefer allocator.free(c);
+        defer allocator.free(c);
 
         var tag = self.tag;
         _ = aead.encrypt(c, &tag, encoded, self.add, self.nonce, self.key);
         
+        // Duplicate if you really need to (but prefer Approach 1)
         const encrypted = try allocator.dupe(u8, c);
-        return encrypted;
-        }
+    
+    return encrypted;
+
+    }
 };
 
+test "init method test " {
+    var test_input: [40]u8 = undefined;
+    
+    for (test_input[0..12], 0..) |_, i| test_input[i] = @intCast(i);
+    for (test_input[12..24], 0..) |_, i| test_input[12 + i] = 0xAA;
+    for (test_input[24..], 0..) |_, i| test_input[24 + i] = 0xBB;
 
+    var crypto = Crypto.init(&test_input);
+
+    try testing.expectEqualSlices(u8, crypto.nonce[0..], test_input[0..12]);
+    try testing.expectEqualSlices(u8, crypto.tag[0..], test_input[24..]);
+    try testing.expectEqualSlices(u8, crypto.ciphertext, test_input[12..24]);
+
+    try testing.expectEqual(crypto.add.len, "auth_data".len);
+}
+
+test "decrypt method test " {
+    var test_input: [40]u8 = undefined;
+    
+    for (test_input[0..12], 0..) |_, i| test_input[i] = @intCast(i);
+    for (test_input[12..24], 0..) |_, i| test_input[12 + i] = 0xAA;
+    for (test_input[24..], 0..) |_, i| test_input[24 + i] = 0xBB;
+
+    var crypto = Crypto.init(&test_input);
+
+    const decrypted = Crypto.decrypt(&crypto);
+    const info = @typeInfo(@TypeOf(decrypted));
+    try testing.expectEqualStrings(@tagName(info), "error_union");
+}
+
+
+test "crypto method test " {
+    
+    var test_input: [40]u8 = undefined;
+    
+    for (test_input[0..12], 0..) |_, i| test_input[i] = @intCast(i);
+    for (test_input[12..24], 0..) |_, i| test_input[12 + i] = 0xAA;
+    for (test_input[24..], 0..) |_, i| test_input[24 + i] = 0xBB;
+
+    var crypto = Crypto.init(&test_input);
+    var test_allocator = testing.allocator;
+    const test_payload = Session{
+        .ip = "84.234.123.160",
+        .port = 55555,
+    };
+
+    const encrypted = try Crypto.encrypt(&crypto, test_payload,&test_allocator);
+    defer test_allocator.free(encrypted);
+    
+    try testing.expect(encrypted.len > 0);
+
+}

@@ -59,7 +59,7 @@ pub const Session = struct {
         self.clients.deinit();
     }
 
-    pub fn log_client(crypto: *Crypto, socket: *server, self: *Self, data: packet) !void {
+    pub fn log_client(self: *Self, crypto: *Crypto, socket: *server, data: packet, permission: bool) !void {
         
         const client_key = ClientKey{
             .ip = data.ip,
@@ -69,7 +69,7 @@ pub const Session = struct {
             .port = data.port,
         };
     
-        
+       if (permission) {
         const server_data = ServerData{
             .ip = "84.234.123.160",
             .port = 55555,
@@ -77,6 +77,7 @@ pub const Session = struct {
 
         
         try server.send(socket, crypto, server_data, &self.allocator);
+        }
         
         try self.clients.put(client_key, client_data);
         std.debug.print("Client: {s} logged\n", .{data.ip});
@@ -105,3 +106,62 @@ pub const Session = struct {
         }
     }
 };
+
+
+
+
+
+test "init session test" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    
+    // Test initialization
+    var session = try Session.init(arena.allocator());
+    defer session.deinit();
+    
+    // Verify clients map is empty
+    try std.testing.expectEqual(@as(usize, 0), session.clients.count());
+}
+
+test "log in session test" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+
+    var session = try Session.init(arena.allocator());
+    defer session.deinit();
+
+    var test_input: [40]u8 = undefined;
+    for (test_input[0..12], 0..) |_, i| test_input[i] = @intCast(i);
+    for (test_input[12..24], 0..) |_, i| test_input[12 + i] = 0xAA;
+    for (test_input[24..], 0..) |_, i| test_input[24 + i] = 0xBB;
+
+    var crypto = Crypto.init(&test_input);
+    var sock = try server.init("127.0.0.1", 0);
+    defer sock.deinit();
+
+    const test_packet = packet{
+        .ip = "192.168.1.1",
+        .port = 12345,
+    };
+
+    try session.log_client(&crypto, &sock, test_packet, false);
+    try std.testing.expectEqual(@as(usize, 1), session.clients.count());
+}
+
+test "log out session test" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    
+    var session = try Session.init(arena.allocator());
+    defer session.deinit();
+    
+    const test_ip = "192.168.1.1";
+    try session.clients.put(
+        ClientKey{.ip = test_ip},
+        ClientData{.port = 12345}
+    );
+    
+    try session.logout_client(test_ip);
+    
+    try std.testing.expectEqual(@as(usize, 0), session.clients.count());
+}

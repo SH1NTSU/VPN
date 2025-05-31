@@ -7,8 +7,11 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
+    
     var socket = try server.Socket.init("0.0.0.0", 55555);
+     
     defer socket.deinit();
+    
     try socket.bind();
     std.debug.print("Server listening on 0.0.0.0:55555\n", .{});
 
@@ -45,7 +48,7 @@ pub fn main() !void {
             continue;
         };
 
-        try session.log_client(&crypto_, &socket, &session_, packet);
+        try session.log_client(&session_,&crypto_, &socket,  packet, true);
 
         session.check_clients(&session_) catch |err| {
             std.debug.print("Client check failed: {}\n", .{err});
